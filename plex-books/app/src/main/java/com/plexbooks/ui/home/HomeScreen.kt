@@ -233,6 +233,26 @@ fun HomeScreen(
                                     }
                                 }
                             }
+
+                            // All Books
+                            if (state.allBooks.isNotEmpty()) {
+                                item { SectionHeader("All Books") }
+                                item {
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        items(state.allBooks, key = { it.ratingKey }) { item ->
+                                            MediaCard(
+                                                item = item,
+                                                serverUri = state.serverUri,
+                                                serverToken = state.serverToken,
+                                                onClick = { onBookClick(item.ratingKey) }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

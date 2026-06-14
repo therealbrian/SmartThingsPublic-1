@@ -147,7 +147,7 @@ fun PlayerScreen(
 
             Spacer(Modifier.weight(0.5f))
 
-            // Title and author
+            // Title, author, and current chapter
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -164,6 +164,16 @@ fun PlayerScreen(
                         state.author,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (state.currentChapterTitle.isNotBlank()) {
+                    Text(
+                        state.currentChapterTitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = PlexOrange,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }

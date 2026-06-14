@@ -28,6 +28,7 @@ data class HomeUiState(
     val libraries: List<PlexLibrarySection> = emptyList(),
     val onDeck: List<PlexMediaItem> = emptyList(),
     val recentlyAdded: List<PlexMediaItem> = emptyList(),
+    val allBooks: List<PlexMediaItem> = emptyList(),
     val serverUri: String = "",
     val serverToken: String = "",
     val isLoading: Boolean = true,
@@ -102,11 +103,15 @@ class HomeViewModel @Inject constructor(
                 val bookSectionId = libraries.firstOrNull()?.key
                 val onDeck = bookSectionId?.let { mediaRepo.getSectionOnDeck(it) } ?: emptyList()
                 val recentlyAdded = bookSectionId?.let { mediaRepo.getSectionRecentlyAdded(it) } ?: emptyList()
+                val allBooks = bookSectionId?.let {
+                    runCatching { mediaRepo.getSectionItems(it) }.getOrDefault(emptyList())
+                } ?: emptyList()
                 _state.value = HomeUiState(
                     serverName = serverName,
                     libraries = libraries,
                     onDeck = onDeck,
                     recentlyAdded = recentlyAdded,
+                    allBooks = allBooks,
                     serverUri = serverUri,
                     serverToken = serverToken,
                     isLoading = false
