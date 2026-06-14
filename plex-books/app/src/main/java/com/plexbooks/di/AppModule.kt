@@ -107,6 +107,9 @@ object AppModule {
 
     @Provides
     fun provideProgressDao(db: AppDatabase): ProgressDao = db.progressDao()
+
+    @Provides
+    fun provideDownloadDao(db: AppDatabase): com.plexbooks.data.local.DownloadDao = db.downloadDao()
 }
 
 /** Wraps PlexMediaApi so it always picks up the current server URI at call time. */

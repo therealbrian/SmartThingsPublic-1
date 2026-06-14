@@ -116,8 +116,11 @@ class PlayerViewModel @Inject constructor(
             val savedProgress = viewModelScope.launch {
                 val progress = mediaRepo.getLocalProgress(currentRatingKey)
                 val mediaItems = tracks.mapNotNull { track ->
-                    val key = track.streamKey() ?: return@mapNotNull null
-                    val url = "$serverUri$key?X-Plex-Token=$serverToken&download=1"
+                    val localUri = mediaRepo.localFileUri(track.ratingKey)
+                    val url = localUri ?: run {
+                        val key = track.streamKey() ?: return@mapNotNull null
+                        "$serverUri$key?X-Plex-Token=$serverToken&download=1"
+                    }
                     MediaItem.Builder()
                         .setMediaId(track.ratingKey)
                         .setUri(url)
