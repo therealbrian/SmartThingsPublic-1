@@ -37,6 +37,8 @@ data class PlayerUiState(
     val error: String? = null,
     val speed: Float = 1.0f,
     val chapterOffsets: List<Long> = emptyList(),
+    val chapterTitles: List<String> = emptyList(),
+    val currentChapterTitle: String = "",
     val skipBackSecs: Int = 15,
     val skipForwardSecs: Int = 30
 )
@@ -99,13 +101,14 @@ class PlayerViewModel @Inject constructor(
 
             val author = item.grandparentTitle ?: item.parentTitle ?: ""
 
-            val chapterOffsets = if (tracks.size == 1) {
+            val rawChapters = if (tracks.size == 1) {
                 runCatching { mediaRepo.getMetadata(tracks.first().ratingKey) }
-                    .getOrNull()?.chapters
-                    ?.map { it.startTimeOffset }
-                    ?.sorted()
-                    ?: emptyList()
+                    .getOrNull()?.chapters?.sortedBy { it.startTimeOffset } ?: emptyList()
             } else emptyList()
+            val chapterOffsets = rawChapters.map { it.startTimeOffset }
+            val chapterTitles = rawChapters.mapIndexed { i, ch ->
+                ch.tag?.takeIf { it.isNotBlank() } ?: "Chapter ${ch.index ?: (i + 1)}"
+            }
 
             _state.value = _state.value.copy(
                 title = item.title,
@@ -113,7 +116,8 @@ class PlayerViewModel @Inject constructor(
                 thumb = thumbUrl,
                 durationMs = totalDuration,
                 isLoading = false,
-                chapterOffsets = chapterOffsets
+                chapterOffsets = chapterOffsets,
+                chapterTitles = chapterTitles
             )
 
             connectAndPlay(tracks, item)
@@ -207,7 +211,9 @@ class PlayerViewModel @Inject constructor(
                 val c = controller ?: break
                 val pos = c.currentPosition
                 val dur = c.duration.coerceAtLeast(0)
-                _state.value = _state.value.copy(positionMs = pos, durationMs = dur)
+                val chapterIdx = _state.value.chapterOffsets.indexOfLast { it <= pos }
+                val chapterTitle = _state.value.chapterTitles.getOrElse(chapterIdx) { "" }
+                _state.value = _state.value.copy(positionMs = pos, durationMs = dur, currentChapterTitle = chapterTitle)
                 if (pos > 0 && dur > 0) {
                     mediaRepo.saveProgress(
                         ratingKey = currentRatingKey,
