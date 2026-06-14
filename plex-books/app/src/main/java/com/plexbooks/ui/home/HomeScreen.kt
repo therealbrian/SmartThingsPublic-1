@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -240,15 +241,13 @@ fun HomeScreen(
                                 item { SectionHeader("All Books (${state.allBooks.size}${if (state.hasMoreBooks) "+" else ""})") }
                                 item {
                                     val allBooksListState = rememberLazyListState()
-                                    val nearEnd by remember {
-                                        derivedStateOf {
-                                            val last = allBooksListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                                    LaunchedEffect(allBooksListState) {
+                                        snapshotFlow {
+                                            allBooksListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                                        }.collect { lastIndex ->
                                             val total = allBooksListState.layoutInfo.totalItemsCount
-                                            total > 0 && last >= total - 5
+                                            if (total > 0 && lastIndex >= total - 5) vm.loadMoreBooks()
                                         }
-                                    }
-                                    LaunchedEffect(nearEnd) {
-                                        if (nearEnd) vm.loadMoreBooks()
                                     }
                                     LazyRow(
                                         state = allBooksListState,
