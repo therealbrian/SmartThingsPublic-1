@@ -4,9 +4,14 @@ import com.plexbooks.data.api.PlexMediaApi
 import com.plexbooks.data.api.model.BOOK_LIBRARY_TYPES
 import com.plexbooks.data.api.model.PlexLibrarySection
 import com.plexbooks.data.api.model.PlexMediaItem
+import com.plexbooks.data.local.DownloadDao
+import com.plexbooks.data.local.DownloadEntity
+import com.plexbooks.data.local.DownloadManagerHelper
+import com.plexbooks.data.local.DownloadStatus
 import com.plexbooks.data.local.ProgressDao
 import com.plexbooks.data.local.ProgressEntity
 import com.plexbooks.data.prefs.PlexPreferences
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -15,7 +20,9 @@ import javax.inject.Singleton
 class PlexMediaRepository @Inject constructor(
     private val mediaApi: PlexMediaApi,
     private val prefs: PlexPreferences,
-    private val progressDao: ProgressDao
+    private val progressDao: ProgressDao,
+    private val downloadDao: DownloadDao,
+    private val downloadHelper: DownloadManagerHelper
 ) {
     suspend fun getBookLibraries(): List<PlexLibrarySection> =
         mediaApi.getLibrarySections()
@@ -85,4 +92,53 @@ class PlexMediaRepository @Inject constructor(
 
     fun streamUrl(serverUri: String, partKey: String, serverToken: String): String =
         "$serverUri$partKey?X-Plex-Token=$serverToken&download=1"
+
+    // ── Downloads ────────────────────────────────────────────────────────────
+
+    suspend fun startDownload(ratingKey: String, title: String, partKey: String) {
+        val serverUri = prefs.serverUri.first() ?: return
+        val serverToken = prefs.serverToken.first() ?: return
+        val url = "$serverUri$partKey?X-Plex-Token=$serverToken&download=1"
+        val localPath = downloadHelper.localPath(ratingKey)
+        val downloadId = downloadHelper.enqueue(ratingKey, title, url)
+        downloadDao.upsert(
+            DownloadEntity(
+                ratingKey = ratingKey,
+                title = title,
+                partKey = partKey,
+                localPath = localPath,
+                status = DownloadStatus.DOWNLOADING,
+                downloadId = downloadId
+            )
+        )
+    }
+
+    suspend fun checkAndUpdateDownloadStatus(ratingKey: String) {
+        val entity = downloadDao.get(ratingKey) ?: return
+        if (entity.status == DownloadStatus.DONE) return
+        val status = downloadHelper.queryStatus(entity.downloadId)
+        val newStatus = when (status) {
+            android.app.DownloadManager.STATUS_SUCCESSFUL -> DownloadStatus.DONE
+            android.app.DownloadManager.STATUS_FAILED -> DownloadStatus.FAILED
+            else -> return
+        }
+        downloadDao.updateStatus(ratingKey, newStatus)
+    }
+
+    suspend fun deleteDownload(ratingKey: String) {
+        val entity = downloadDao.get(ratingKey) ?: return
+        downloadHelper.delete(entity.downloadId)
+        java.io.File(entity.localPath).delete()
+        downloadDao.delete(ratingKey)
+    }
+
+    fun observeDownload(ratingKey: String): Flow<DownloadEntity?> =
+        downloadDao.observe(ratingKey)
+
+    fun getAllDownloads(): Flow<List<DownloadEntity>> = downloadDao.getAll()
+
+    fun localFileUri(ratingKey: String): String? {
+        val path = downloadHelper.localPath(ratingKey)
+        return if (java.io.File(path).exists()) "file://$path" else null
+    }
 }
