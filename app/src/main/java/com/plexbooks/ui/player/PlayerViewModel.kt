@@ -2,9 +2,11 @@ package com.plexbooks.ui.player
 
 import android.content.ComponentName
 import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -136,6 +138,11 @@ class PlayerViewModel @Inject constructor(
 
             val savedProgress = viewModelScope.launch {
                 val progress = mediaRepo.getLocalProgress(currentRatingKey)
+                val metadata = MediaMetadata.Builder()
+                    .setTitle(_state.value.title)
+                    .setArtist(_state.value.author)
+                    .setArtworkUri(_state.value.thumb?.let { Uri.parse(it) })
+                    .build()
                 val mediaItems = tracks.mapNotNull { track ->
                     val localUri = mediaRepo.localFileUri(track.ratingKey)
                     val url = localUri ?: run {
@@ -145,6 +152,7 @@ class PlayerViewModel @Inject constructor(
                     MediaItem.Builder()
                         .setMediaId(track.ratingKey)
                         .setUri(url)
+                        .setMediaMetadata(metadata)
                         .build()
                 }
                 controller?.setMediaItems(mediaItems)
