@@ -31,8 +31,8 @@ class PlexMediaRepository @Inject constructor(
             .orEmpty()
             .filter { it.title.contains("book", ignoreCase = true) || it.type == "book" }
 
-    suspend fun getSectionItems(sectionId: String): List<PlexMediaItem> =
-        mediaApi.getSectionItems(sectionId, type = 9)
+    suspend fun getSectionItems(sectionId: String, start: Int = 0, size: Int = 100): List<PlexMediaItem> =
+        mediaApi.getSectionItems(sectionId, type = 9, start = start, size = size)
             .mediaContainer.metadata.orEmpty()
 
     suspend fun searchBooks(sectionId: String, query: String): List<PlexMediaItem> =

@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -234,11 +235,23 @@ fun HomeScreen(
                                 }
                             }
 
-                            // All Books
+                            // All Books (paginated)
                             if (state.allBooks.isNotEmpty()) {
-                                item { SectionHeader("All Books") }
+                                item { SectionHeader("All Books (${state.allBooks.size}${if (state.hasMoreBooks) "+" else ""})") }
                                 item {
+                                    val allBooksListState = rememberLazyListState()
+                                    val nearEnd by remember {
+                                        derivedStateOf {
+                                            val last = allBooksListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                                            val total = allBooksListState.layoutInfo.totalItemsCount
+                                            total > 0 && last >= total - 5
+                                        }
+                                    }
+                                    LaunchedEffect(nearEnd) {
+                                        if (nearEnd) vm.loadMoreBooks()
+                                    }
                                     LazyRow(
+                                        state = allBooksListState,
                                         contentPadding = PaddingValues(horizontal = 16.dp),
                                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                                     ) {
@@ -249,6 +262,20 @@ fun HomeScreen(
                                                 serverToken = state.serverToken,
                                                 onClick = { onBookClick(item.ratingKey) }
                                             )
+                                        }
+                                        if (state.isLoadingMore) {
+                                            item {
+                                                Box(
+                                                    modifier = Modifier.size(120.dp),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    CircularProgressIndicator(
+                                                        modifier = Modifier.size(28.dp),
+                                                        strokeWidth = 2.dp,
+                                                        color = PlexOrange
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }

@@ -32,6 +32,8 @@ data class HomeUiState(
     val serverUri: String = "",
     val serverToken: String = "",
     val isLoading: Boolean = true,
+    val isLoadingMore: Boolean = false,
+    val hasMoreBooks: Boolean = true,
     val error: String? = null
 )
 
@@ -45,6 +47,10 @@ class HomeViewModel @Inject constructor(
 
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state
+
+    private var bookSectionId: String? = null
+    private var allBooksOffset = 0
+    private val PAGE_SIZE = 100
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery
@@ -103,9 +109,12 @@ class HomeViewModel @Inject constructor(
                 val bookSectionId = libraries.firstOrNull()?.key
                 val onDeck = bookSectionId?.let { mediaRepo.getSectionOnDeck(it) } ?: emptyList()
                 val recentlyAdded = bookSectionId?.let { mediaRepo.getSectionRecentlyAdded(it) } ?: emptyList()
+                bookSectionId = libraries.firstOrNull()?.key
+                allBooksOffset = 0
                 val allBooks = bookSectionId?.let {
-                    runCatching { mediaRepo.getSectionItems(it) }.getOrDefault(emptyList())
+                    runCatching { mediaRepo.getSectionItems(it, start = 0, size = PAGE_SIZE) }.getOrDefault(emptyList())
                 } ?: emptyList()
+                allBooksOffset = allBooks.size
                 _state.value = HomeUiState(
                     serverName = serverName,
                     libraries = libraries,
@@ -114,7 +123,8 @@ class HomeViewModel @Inject constructor(
                     allBooks = allBooks,
                     serverUri = serverUri,
                     serverToken = serverToken,
-                    isLoading = false
+                    isLoading = false,
+                    hasMoreBooks = allBooks.size >= PAGE_SIZE
                 )
             }.onFailure { e ->
                 _state.value = _state.value.copy(isLoading = false, error = e.message)
@@ -136,6 +146,25 @@ class HomeViewModel @Inject constructor(
                 runCatching { mediaRepo.searchBooks(section.key, query) }.getOrDefault(emptyList())
             }.distinctBy { it.ratingKey }
             _searchResults.value = results
+        }
+    }
+
+    fun loadMoreBooks() {
+        val sectionId = bookSectionId ?: return
+        if (_state.value.isLoadingMore || !_state.value.hasMoreBooks) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isLoadingMore = true)
+            runCatching {
+                val more = mediaRepo.getSectionItems(sectionId, start = allBooksOffset, size = PAGE_SIZE)
+                allBooksOffset += more.size
+                _state.value = _state.value.copy(
+                    allBooks = _state.value.allBooks + more,
+                    isLoadingMore = false,
+                    hasMoreBooks = more.size >= PAGE_SIZE
+                )
+            }.onFailure {
+                _state.value = _state.value.copy(isLoadingMore = false)
+            }
         }
     }
 
