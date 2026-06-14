@@ -161,6 +161,15 @@ fun PlayerScreen(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                IconButton(
+                    onClick = { vm.skipToPreviousChapter() },
+                    enabled = state.chapterOffsets.isNotEmpty()
+                ) {
+                    Icon(Icons.Default.SkipPrevious, "Previous chapter", modifier = Modifier.size(32.dp),
+                        tint = if (state.chapterOffsets.isNotEmpty()) LocalContentColor.current
+                               else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
+                }
+
                 IconButton(onClick = { vm.skipBackward() }) {
                     Icon(Icons.Default.Replay10, "Back 15s", modifier = Modifier.size(32.dp))
                 }
@@ -185,6 +194,15 @@ fun PlayerScreen(
 
                 IconButton(onClick = { vm.skipForward() }) {
                     Icon(Icons.Default.Forward30, "Forward 30s", modifier = Modifier.size(32.dp))
+                }
+
+                IconButton(
+                    onClick = { vm.skipToNextChapter() },
+                    enabled = state.chapterOffsets.isNotEmpty()
+                ) {
+                    Icon(Icons.Default.SkipNext, "Next chapter", modifier = Modifier.size(32.dp),
+                        tint = if (state.chapterOffsets.isNotEmpty()) LocalContentColor.current
+                               else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
                 }
             }
 

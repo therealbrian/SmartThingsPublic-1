@@ -35,7 +35,8 @@ data class PlayerUiState(
     val durationMs: Long = 0L,
     val isLoading: Boolean = true,
     val error: String? = null,
-    val speed: Float = 1.0f
+    val speed: Float = 1.0f,
+    val chapterOffsets: List<Long> = emptyList()
 )
 
 @HiltViewModel
@@ -91,12 +92,22 @@ class PlayerViewModel @Inject constructor(
             else tracks.sumOf { it.totalDurationMs() }
 
             val author = item.grandparentTitle ?: item.parentTitle ?: ""
+
+            val chapterOffsets = if (tracks.size == 1) {
+                runCatching { mediaRepo.getMetadata(tracks.first().ratingKey) }
+                    .getOrNull()?.chapters
+                    ?.map { it.startTimeOffset }
+                    ?.sorted()
+                    ?: emptyList()
+            } else emptyList()
+
             _state.value = _state.value.copy(
                 title = item.title,
                 author = author,
                 thumb = thumbUrl,
                 durationMs = totalDuration,
-                isLoading = false
+                isLoading = false,
+                chapterOffsets = chapterOffsets
             )
 
             connectAndPlay(tracks, item)
@@ -154,6 +165,18 @@ class PlayerViewModel @Inject constructor(
     fun skipBackward() {
         val current = controller?.currentPosition ?: return
         controller?.seekTo(maxOf(0, current - 15_000))
+    }
+
+    fun skipToNextChapter() {
+        val current = controller?.currentPosition ?: return
+        val next = _state.value.chapterOffsets.firstOrNull { it > current + 1_000 } ?: return
+        controller?.seekTo(next)
+    }
+
+    fun skipToPreviousChapter() {
+        val current = controller?.currentPosition ?: return
+        val prev = _state.value.chapterOffsets.lastOrNull { it < current - 3_000 } ?: 0L
+        controller?.seekTo(prev)
     }
 
     fun setSpeed(speed: Float) {
