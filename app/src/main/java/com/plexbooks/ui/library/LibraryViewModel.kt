@@ -17,6 +17,8 @@ data class LibraryUiState(
     val serverUri: String = "",
     val serverToken: String = "",
     val isLoading: Boolean = true,
+    val isLoadingMore: Boolean = false,
+    val hasMore: Boolean = true,
     val error: String? = null
 )
 
@@ -29,22 +31,49 @@ class LibraryViewModel @Inject constructor(
     private val _state = MutableStateFlow(LibraryUiState())
     val state: StateFlow<LibraryUiState> = _state
 
-    fun load(sectionId: String) {
+    private var sectionId: String = ""
+    private var offset = 0
+    private val PAGE_SIZE = 100
+
+    fun load(id: String) {
+        sectionId = id
+        offset = 0
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
             val serverUri = prefs.serverUri.first() ?: ""
             val serverToken = prefs.serverToken.first() ?: ""
-            runCatching { mediaRepo.getSectionItems(sectionId) }
+            runCatching { mediaRepo.getSectionItems(id, start = 0, size = PAGE_SIZE) }
                 .onSuccess { items ->
+                    offset = items.size
                     _state.value = LibraryUiState(
                         items = items,
                         serverUri = serverUri,
                         serverToken = serverToken,
-                        isLoading = false
+                        isLoading = false,
+                        hasMore = items.size >= PAGE_SIZE
                     )
                 }
                 .onFailure { e ->
                     _state.value = _state.value.copy(isLoading = false, error = e.message)
+                }
+        }
+    }
+
+    fun loadMore() {
+        if (_state.value.isLoadingMore || !_state.value.hasMore) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isLoadingMore = true)
+            runCatching { mediaRepo.getSectionItems(sectionId, start = offset, size = PAGE_SIZE) }
+                .onSuccess { more ->
+                    offset += more.size
+                    _state.value = _state.value.copy(
+                        items = _state.value.items + more,
+                        isLoadingMore = false,
+                        hasMore = more.size >= PAGE_SIZE
+                    )
+                }
+                .onFailure {
+                    _state.value = _state.value.copy(isLoadingMore = false)
                 }
         }
     }
