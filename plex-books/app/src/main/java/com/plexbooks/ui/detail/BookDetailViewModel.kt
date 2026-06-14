@@ -43,7 +43,17 @@ class BookDetailViewModel @Inject constructor(
             val serverToken = prefs.serverToken.first() ?: ""
             runCatching {
                 val item = mediaRepo.getMetadata(ratingKey)
-                val tracks = mediaRepo.getChildren(ratingKey)
+
+                // M4B audiobooks: Plex stores a single M4B as one child, with the actual
+                // chapters nested one level deeper as children of that track.
+                val firstLevel = mediaRepo.getChildren(ratingKey)
+                val tracks = if (firstLevel.size == 1) {
+                    val deeper = runCatching { mediaRepo.getChildren(firstLevel[0].ratingKey) }.getOrNull()
+                    if (!deeper.isNullOrEmpty()) deeper else firstLevel
+                } else {
+                    firstLevel
+                }
+
                 val progress = mediaRepo.getLocalProgress(ratingKey)
 
                 // Load per-track progress

@@ -2,11 +2,17 @@ package com.plexbooks.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val PlexOrange = Color(0xFFE5A00D)
-val PlexOrangeDark = Color(0xFFB37D00)
-val PlexBackground = Color(0xFF1F1F1F)
-val PlexSurface = Color(0xFF2D2D2D)
-val PlexSurfaceVariant = Color(0xFF3A3A3A)
-val PlexOnSurface = Color(0xFFEEEEEE)
-val PlexOnSurfaceVariant = Color(0xFFAAAAAA)
-val PlexError = Color(0xFFCF6679)
+// UK Blue (#0033A0 official) and supporting palette
+val UKBlue        = Color(0xFF0033A0)
+val UKBlueDark    = Color(0xFF00257A)
+val UKBlueLight   = Color(0xFFD6E4FF)
+
+val AppBackground      = Color(0xFFFFFFFF)
+val AppSurface         = Color(0xFFF8FAFF)
+val AppSurfaceVariant  = Color(0xFFE3EBF8)
+val AppOnSurface       = Color(0xFF0D1B3E)
+val AppOnSurfaceVariant = Color(0xFF4A5872)
+val AppError           = Color(0xFFB3261E)
+
+// Keep PlexOrange as an alias so no other files break (unused visually)
+val PlexOrange = UKBlue
