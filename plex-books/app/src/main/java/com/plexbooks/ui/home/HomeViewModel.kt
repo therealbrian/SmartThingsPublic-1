@@ -123,8 +123,10 @@ class HomeViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            val sections = _state.value.libraries
-            val results = sections.flatMap { section ->
+            // Only search in dedicated book libraries (type == "book"), not music/podcast sections
+            val bookSections = _state.value.libraries.filter { it.type == "book" }
+                .ifEmpty { _state.value.libraries }  // fallback to all if no "book" type found
+            val results = bookSections.flatMap { section ->
                 runCatching { mediaRepo.searchBooks(section.key, query) }.getOrDefault(emptyList())
             }.distinctBy { it.ratingKey }
             _searchResults.value = results
