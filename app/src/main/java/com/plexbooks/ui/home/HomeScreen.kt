@@ -5,6 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -18,7 +21,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-
 import coil.compose.AsyncImage
 import com.plexbooks.data.api.model.PlexLibrarySection
 import com.plexbooks.data.api.model.PlexMediaItem
@@ -35,7 +37,9 @@ fun HomeScreen(
     vm: HomeViewModel = hiltViewModel()
 ) {
     val state by vm.state.collectAsState()
-    val progress by vm.progressItems.collectAsState()
+    val searchQuery by vm.searchQuery.collectAsState()
+    val searchResults by vm.searchResults.collectAsState()
+    val libraryItems by vm.libraryItems.collectAsState()
     var showLogoutDialog by remember { mutableStateOf(false) }
 
     if (showLogoutDialog) {
@@ -81,100 +85,151 @@ fun HomeScreen(
             )
         }
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
-            when {
-                state.isLoading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center),
-                        color = PlexOrange
-                    )
-                }
-                state.error != null -> {
-                    Column(
-                        Modifier.align(Alignment.Center).padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+        Column(Modifier.fillMaxSize().padding(padding)) {
+
+            // Search bar
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { vm.setSearchQuery(it) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                placeholder = { Text("Search books…") },
+                leadingIcon = { Icon(Icons.Default.Search, null) },
+                trailingIcon = {
+                    if (searchQuery.isNotBlank()) {
+                        IconButton(onClick = { vm.setSearchQuery("") }) {
+                            Icon(Icons.Default.Close, "Clear")
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            // Search results
+            if (searchQuery.isNotBlank()) {
+                if (searchResults.isEmpty()) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            "No results for \"$searchQuery\"",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 120.dp),
+                        contentPadding = PaddingValues(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
-                        Text(state.error ?: "Error", color = MaterialTheme.colorScheme.error)
-                        Button(onClick = { vm.load() }) { Text("Retry") }
+                        items(searchResults, key = { it.ratingKey }) { item ->
+                            MediaCard(
+                                item = item,
+                                serverUri = state.serverUri,
+                                serverToken = state.serverToken,
+                                onClick = { onBookClick(item.ratingKey) }
+                            )
+                        }
                     }
                 }
-                else -> {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(bottom = 24.dp)
-                    ) {
-                        // Continue listening
-                        if (progress.isNotEmpty()) {
-                            item {
-                                SectionHeader("Continue Listening")
-                                LazyRow(
-                                    contentPadding = PaddingValues(horizontal = 16.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    items(progress.take(10)) { p ->
-                                        ProgressCard(
-                                            title = p.title,
-                                            thumb = p.thumb,
-                                            percent = p.percentComplete,
-                                            onClick = { onResumeClick(p.ratingKey, p.title) }
-                                        )
+                return@Scaffold
+            }
+
+            // Normal home content
+            Box(Modifier.fillMaxSize()) {
+                when {
+                    state.isLoading -> {
+                        CircularProgressIndicator(Modifier.align(Alignment.Center), color = PlexOrange)
+                    }
+                    state.error != null -> {
+                        Column(
+                            Modifier.align(Alignment.Center).padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
+                            Text(state.error ?: "Error", color = MaterialTheme.colorScheme.error)
+                            Button(onClick = { vm.load() }) { Text("Retry") }
+                        }
+                    }
+                    else -> {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(bottom = 24.dp)
+                        ) {
+                            // My Library
+                            if (libraryItems.isNotEmpty()) {
+                                item { SectionHeader("My Library") }
+                                item {
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        items(libraryItems, key = { it.ratingKey }) { entry ->
+                                            LibraryCard(
+                                                entry = entry,
+                                                onClick = { onBookClick(entry.ratingKey) },
+                                                onDeleteDownload = if (entry.isDownloaded) {
+                                                    { vm.deleteDownload(entry.ratingKey) }
+                                                } else null
+                                            )
+                                        }
                                     }
                                 }
                             }
-                        }
 
-                        // Libraries
-                        if (state.libraries.isNotEmpty()) {
-                            item { SectionHeader("Libraries") }
-                            item {
-                                LazyRow(
-                                    contentPadding = PaddingValues(horizontal = 16.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    items(state.libraries) { lib ->
-                                        LibraryChip(lib) { onLibraryClick(lib.key, lib.title) }
+                            // Continue listening (Plex on-deck)
+                            if (state.onDeck.isNotEmpty()) {
+                                item { SectionHeader("Continue Listening") }
+                                item {
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        items(state.onDeck) { item ->
+                                            MediaCard(
+                                                item = item,
+                                                serverUri = state.serverUri,
+                                                serverToken = state.serverToken,
+                                                onClick = { onResumeClick(item.ratingKey, item.title) }
+                                            )
+                                        }
                                     }
                                 }
                             }
-                        }
 
-                        // On deck
-                        if (state.onDeck.isNotEmpty()) {
-                            item { SectionHeader("On Deck") }
-                            item {
-                                LazyRow(
-                                    contentPadding = PaddingValues(horizontal = 16.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    items(state.onDeck) { item ->
-                                        MediaCard(
-                                            item = item,
-                                            serverUri = state.serverUri,
-                                            serverToken = state.serverToken,
-                                            onClick = { onBookClick(item.ratingKey) }
-                                        )
+                            // Libraries
+                            if (state.libraries.isNotEmpty()) {
+                                item { SectionHeader("Libraries") }
+                                item {
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        items(state.libraries) { lib ->
+                                            LibraryChip(lib) { onLibraryClick(lib.key, lib.title) }
+                                        }
                                     }
                                 }
                             }
-                        }
 
-                        // Recently added
-                        if (state.recentlyAdded.isNotEmpty()) {
-                            item { SectionHeader("Recently Added") }
-                            item {
-                                LazyRow(
-                                    contentPadding = PaddingValues(horizontal = 16.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    items(state.recentlyAdded) { item ->
-                                        MediaCard(
-                                            item = item,
-                                            serverUri = state.serverUri,
-                                            serverToken = state.serverToken,
-                                            onClick = { onBookClick(item.ratingKey) }
-                                        )
+                            // Recently added
+                            if (state.recentlyAdded.isNotEmpty()) {
+                                item { SectionHeader("Recently Added") }
+                                item {
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        items(state.recentlyAdded) { item ->
+                                            MediaCard(
+                                                item = item,
+                                                serverUri = state.serverUri,
+                                                serverToken = state.serverToken,
+                                                onClick = { onBookClick(item.ratingKey) }
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -182,6 +237,96 @@ fun HomeScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun LibraryCard(
+    entry: LibraryEntry,
+    onClick: () -> Unit,
+    onDeleteDownload: (() -> Unit)?
+) {
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Remove download?") },
+            text = { Text("\"${entry.title}\" will be removed from your device.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteDownload?.invoke()
+                    showDeleteConfirm = false
+                }) { Text("Remove", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    Column(modifier = Modifier.width(120.dp).clickable(onClick = onClick)) {
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            if (entry.thumbUrl != null) {
+                AsyncImage(
+                    model = entry.thumbUrl,
+                    contentDescription = entry.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Icon(
+                    Icons.Default.MenuBook,
+                    contentDescription = null,
+                    tint = PlexOrange,
+                    modifier = Modifier.align(Alignment.Center).size(40.dp)
+                )
+            }
+
+            if (entry.percentComplete > 0f) {
+                LinearProgressIndicator(
+                    progress = { entry.percentComplete },
+                    modifier = Modifier.fillMaxWidth().height(3.dp).align(Alignment.BottomCenter),
+                    color = PlexOrange,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            }
+
+            // Downloaded badge — tap to remove
+            if (entry.isDownloaded && onDeleteDownload != null) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.88f))
+                        .clickable { showDeleteConfirm = true }
+                        .padding(4.dp)
+                ) {
+                    Icon(
+                        Icons.Default.DownloadDone,
+                        contentDescription = "Downloaded — tap to remove",
+                        tint = PlexOrange,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(4.dp))
+        Text(entry.title, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        if (entry.percentComplete > 0f) {
+            Text(
+                "${(entry.percentComplete * 100).toInt()}% complete",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -205,11 +350,7 @@ fun MediaCard(
     val thumbUrl = if (!item.thumb.isNullOrBlank())
         "$serverUri${item.thumb}?X-Plex-Token=$serverToken" else null
 
-    Column(
-        modifier = Modifier
-            .width(120.dp)
-            .clickable(onClick = onClick)
-    ) {
+    Column(modifier = Modifier.width(120.dp).clickable(onClick = onClick)) {
         Box(
             modifier = Modifier
                 .size(120.dp)
@@ -233,20 +374,10 @@ fun MediaCard(
             }
         }
         Spacer(Modifier.height(4.dp))
-        Text(
-            item.title,
-            style = MaterialTheme.typography.bodyMedium,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
+        Text(item.title, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
         item.displayAuthor()?.let {
-            Text(
-                it,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Text(it, style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -269,47 +400,4 @@ private fun LibraryChip(section: PlexLibrarySection, onClick: () -> Unit) {
             )
         }
     )
-}
-
-@Composable
-private fun ProgressCard(title: String, thumb: String?, percent: Float, onClick: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .width(120.dp)
-            .clickable(onClick = onClick)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(120.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-        ) {
-            if (thumb != null) {
-                AsyncImage(
-                    model = thumb,
-                    contentDescription = title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                Icon(
-                    Icons.Default.Headphones,
-                    contentDescription = null,
-                    tint = PlexOrange,
-                    modifier = Modifier.align(Alignment.Center).size(40.dp)
-                )
-            }
-            LinearProgressIndicator(
-                progress = { percent },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(3.dp)
-                    .align(Alignment.BottomCenter),
-                color = PlexOrange,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-        }
-        Spacer(Modifier.height(4.dp))
-        Text(title, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-    }
 }

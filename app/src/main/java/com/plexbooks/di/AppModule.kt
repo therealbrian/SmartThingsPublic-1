@@ -125,8 +125,8 @@ class DynamicPlexMediaApi(
     }
 
     override suspend fun getLibrarySections() = api().getLibrarySections()
-    override suspend fun getSectionItems(sectionId: String, type: Int?, sort: String, start: Int, size: Int) =
-        api().getSectionItems(sectionId, type, sort, start, size)
+    override suspend fun getSectionItems(sectionId: String, type: Int?, sort: String, start: Int, size: Int, title: String?) =
+        api().getSectionItems(sectionId, type, sort, start, size, title)
     override suspend fun getChildren(ratingKey: String, includeChapters: Int) = api().getChildren(ratingKey, includeChapters)
     override suspend fun getChapters(ratingKey: String) = api().getChapters(ratingKey)
     override suspend fun getRecentlyAdded(start: Int, size: Int) = api().getRecentlyAdded(start, size)

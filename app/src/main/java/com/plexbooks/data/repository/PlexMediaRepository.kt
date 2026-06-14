@@ -35,6 +35,10 @@ class PlexMediaRepository @Inject constructor(
         mediaApi.getSectionItems(sectionId, type = 9)
             .mediaContainer.metadata.orEmpty()
 
+    suspend fun searchBooks(sectionId: String, query: String): List<PlexMediaItem> =
+        mediaApi.getSectionItems(sectionId, type = 9, title = query, size = 50)
+            .mediaContainer.metadata.orEmpty()
+
     suspend fun getChildren(ratingKey: String): List<PlexMediaItem> =
         mediaApi.getChildren(ratingKey).mediaContainer.metadata.orEmpty()
 

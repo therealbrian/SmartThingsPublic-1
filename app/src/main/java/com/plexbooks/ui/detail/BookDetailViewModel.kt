@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.plexbooks.data.api.model.PlexChapter
 import com.plexbooks.data.api.model.PlexMediaItem
+import com.plexbooks.data.api.model.streamKey
 import com.plexbooks.data.local.DownloadEntity
 import com.plexbooks.data.local.ProgressEntity
 import com.plexbooks.data.prefs.PlexPreferences
@@ -18,9 +19,10 @@ import javax.inject.Inject
 data class BookDetailUiState(
     val item: PlexMediaItem? = null,
     val tracks: List<PlexMediaItem> = emptyList(),
+    val sourceFiles: List<PlexMediaItem> = emptyList(),
     val progress: ProgressEntity? = null,
     val trackProgress: Map<String, ProgressEntity> = emptyMap(),
-    val downloads: Map<String, DownloadEntity> = emptyMap(),
+    val bookDownload: DownloadEntity? = null,
     val serverUri: String = "",
     val serverToken: String = "",
     val isLoading: Boolean = true,
@@ -44,15 +46,14 @@ class BookDetailViewModel @Inject constructor(
             runCatching {
                 val item = mediaRepo.getMetadata(ratingKey)
 
-                // The ratingKey might be for an individual track (arrived from On Deck)
-                // or an album (arrived from Library). Figure out the right level to load.
                 val albumKey = when (item?.type) {
                     "track" -> item.parentRatingKey ?: ratingKey
                     else -> ratingKey
                 }
                 val bookItem = if (albumKey != ratingKey) mediaRepo.getMetadata(albumKey) ?: item else item
 
-                val tracks = resolveChapters(albumKey)
+                val firstLevel = runCatching { mediaRepo.getChildren(albumKey) }.getOrNull().orEmpty()
+                val tracks = resolveChapters(albumKey, firstLevel)
                 val progress = mediaRepo.getLocalProgress(albumKey)
 
                 val trackProgress = tracks.mapNotNull { track ->
@@ -62,100 +63,82 @@ class BookDetailViewModel @Inject constructor(
                 _state.value = BookDetailUiState(
                     item = bookItem,
                     tracks = tracks,
+                    sourceFiles = firstLevel,
                     progress = progress,
                     trackProgress = trackProgress,
                     serverUri = serverUri,
                     serverToken = serverToken,
                     isLoading = false
                 )
-                observeDownloads(tracks.map { it.ratingKey })
+                observeBookDownload(albumKey)
             }.onFailure { e ->
                 _state.value = _state.value.copy(isLoading = false, error = e.message)
             }
         }
     }
 
-    /**
-     * Plex exposes M4B chapters in several ways depending on version and indexing state.
-     * Try each strategy in order until we get more than one item.
-     */
-    private suspend fun resolveChapters(albumKey: String): List<PlexMediaItem> {
-        // Strategy 1: direct children of the album — multi-file or pre-broken chapters
-        val direct = runCatching { mediaRepo.getChildren(albumKey) }.getOrNull().orEmpty()
-        if (direct.size > 1) return direct
+    private suspend fun resolveChapters(albumKey: String, firstLevel: List<PlexMediaItem>): List<PlexMediaItem> {
+        if (firstLevel.size > 1) return firstLevel
 
-        val singleChild = direct.firstOrNull()
-
-        // Strategy 2: children of a single M4B child (chapters one level deeper)
+        val singleChild = firstLevel.firstOrNull()
         if (singleChild != null) {
             val deeper = runCatching { mediaRepo.getChildren(singleChild.ratingKey) }.getOrNull().orEmpty()
             if (deeper.size > 1) return deeper
 
-            // Strategy 3: /chapters endpoint on the single child
             val chaptersEndpoint = runCatching {
                 mediaRepo.getChaptersEndpoint(singleChild.ratingKey)
             }.getOrNull().orEmpty()
             if (chaptersEndpoint.isNotEmpty()) return chaptersEndpoint
 
-            // Strategy 4: Chapter markers embedded in the track metadata
             val trackMeta = runCatching { mediaRepo.getMetadata(singleChild.ratingKey) }.getOrNull()
             val embedded = trackMeta?.chapters
-            if (!embedded.isNullOrEmpty()) {
-                return chaptersFromMarkers(singleChild, embedded)
-            }
+            if (!embedded.isNullOrEmpty()) return chaptersFromMarkers(singleChild, embedded)
         }
 
-        // Strategy 5: /chapters endpoint on the album itself
         val albumChapters = runCatching {
             mediaRepo.getChaptersEndpoint(albumKey)
         }.getOrNull().orEmpty()
         if (albumChapters.isNotEmpty()) return albumChapters
 
-        return direct
+        return firstLevel
     }
 
     private fun chaptersFromMarkers(parent: PlexMediaItem, chapters: List<PlexChapter>): List<PlexMediaItem> =
         chapters.mapIndexed { i, ch ->
             parent.copy(
-                // Keep parent ratingKey so the player can stream the M4B;
-                // viewOffset encodes where to seek when this chapter is tapped.
                 ratingKey = parent.ratingKey,
-                key = "${parent.key}#ch$i",   // unique key for LazyColumn
+                key = "${parent.key}#ch$i",
                 title = ch.tag?.ifBlank { "Chapter ${i + 1}" } ?: "Chapter ${i + 1}",
                 index = ch.index ?: (i + 1),
                 duration = ch.endTimeOffset - ch.startTimeOffset,
                 viewOffset = ch.startTimeOffset,
                 chapters = null
             )
-        }.distinctBy { it.key }  // deduplicate if Plex returns duplicates
+        }.distinctBy { it.key }
 
-    private fun observeDownloads(ratingKeys: List<String>) {
+    private fun observeBookDownload(albumKey: String) {
         viewModelScope.launch {
-            mediaRepo.getAllDownloads().collect { allDownloads ->
-                val relevant = allDownloads
-                    .filter { it.ratingKey in ratingKeys }
-                    .associateBy { it.ratingKey }
-                _state.value = _state.value.copy(downloads = relevant)
+            mediaRepo.observeDownload(albumKey).collect { download ->
+                _state.value = _state.value.copy(bookDownload = download)
             }
         }
     }
 
-    fun downloadTrack(track: PlexMediaItem) {
-        val partKey = track.media?.firstOrNull()?.parts?.firstOrNull()?.key ?: return
+    fun downloadBook() {
         viewModelScope.launch {
-            mediaRepo.startDownload(track.ratingKey, track.title, partKey)
+            val albumKey = _state.value.item?.ratingKey ?: return@launch
+            val title = _state.value.item?.title ?: return@launch
+            val files = _state.value.sourceFiles.ifEmpty { _state.value.tracks }
+            val file = files.firstOrNull() ?: return@launch
+            val partKey = file.streamKey() ?: return@launch
+            mediaRepo.startDownload(albumKey, title, partKey)
         }
     }
 
-    fun deleteDownload(ratingKey: String) {
+    fun deleteBook() {
         viewModelScope.launch {
-            mediaRepo.deleteDownload(ratingKey)
-        }
-    }
-
-    fun refreshDownloadStatus(ratingKey: String) {
-        viewModelScope.launch {
-            mediaRepo.checkAndUpdateDownloadStatus(ratingKey)
+            val albumKey = _state.value.item?.ratingKey ?: return@launch
+            mediaRepo.deleteDownload(albumKey)
         }
     }
 }

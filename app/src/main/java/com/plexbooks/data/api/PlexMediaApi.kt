@@ -18,7 +18,8 @@ interface PlexMediaApi {
         @Query("type") type: Int? = null,
         @Query("sort") sort: String = "titleSort",
         @Query("X-Plex-Container-Start") start: Int = 0,
-        @Query("X-Plex-Container-Size") size: Int = 100
+        @Query("X-Plex-Container-Size") size: Int = 100,
+        @Query("title") title: String? = null
     ): MediaContainer
 
     /** Children of an item (e.g. tracks inside an album/audiobook) */
