@@ -1,29 +1,32 @@
 package com.plexbooks.ui.theme
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
-private val PlexDarkColors = darkColorScheme(
-    primary = PlexOrange,
-    onPrimary = PlexBackground,
-    primaryContainer = PlexOrangeDark,
-    onPrimaryContainer = PlexOnSurface,
-    secondary = PlexOrange,
-    onSecondary = PlexBackground,
-    background = PlexBackground,
-    onBackground = PlexOnSurface,
-    surface = PlexSurface,
-    onSurface = PlexOnSurface,
-    surfaceVariant = PlexSurfaceVariant,
-    onSurfaceVariant = PlexOnSurfaceVariant,
-    error = PlexError,
+private val PlexLightColors = lightColorScheme(
+    primary = UKBlue,
+    onPrimary = AppBackground,
+    primaryContainer = UKBlueLight,
+    onPrimaryContainer = UKBlueDark,
+    secondary = UKBlue,
+    onSecondary = AppBackground,
+    secondaryContainer = UKBlueLight,
+    onSecondaryContainer = UKBlueDark,
+    background = AppBackground,
+    onBackground = AppOnSurface,
+    surface = AppSurface,
+    onSurface = AppOnSurface,
+    surfaceVariant = AppSurfaceVariant,
+    onSurfaceVariant = AppOnSurfaceVariant,
+    error = AppError,
+    onError = AppBackground,
 )
 
 @Composable
 fun PlexBooksTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = PlexDarkColors,
+        colorScheme = PlexLightColors,
         typography = Typography,
         content = content
     )
