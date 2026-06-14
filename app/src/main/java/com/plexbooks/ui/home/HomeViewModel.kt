@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.plexbooks.data.api.model.PlexLibrarySection
 import com.plexbooks.data.api.model.PlexMediaItem
 import com.plexbooks.data.local.DownloadStatus
-import com.plexbooks.data.local.ProgressEntity
 import com.plexbooks.data.prefs.PlexPreferences
 import com.plexbooks.data.repository.PlexAuthRepository
 import com.plexbooks.data.repository.PlexMediaRepository
@@ -106,11 +105,10 @@ class HomeViewModel @Inject constructor(
             val serverName = prefs.serverName.first() ?: ""
             runCatching {
                 val libraries = mediaRepo.getBookLibraries()
-                val bookSectionId = libraries.firstOrNull()?.key
-                val onDeck = bookSectionId?.let { mediaRepo.getSectionOnDeck(it) } ?: emptyList()
-                val recentlyAdded = bookSectionId?.let { mediaRepo.getSectionRecentlyAdded(it) } ?: emptyList()
                 bookSectionId = libraries.firstOrNull()?.key
                 allBooksOffset = 0
+                val onDeck = bookSectionId?.let { mediaRepo.getSectionOnDeck(it) } ?: emptyList()
+                val recentlyAdded = bookSectionId?.let { mediaRepo.getSectionRecentlyAdded(it) } ?: emptyList()
                 val allBooks = bookSectionId?.let {
                     runCatching { mediaRepo.getSectionItems(it, start = 0, size = PAGE_SIZE) }.getOrDefault(emptyList())
                 } ?: emptyList()
