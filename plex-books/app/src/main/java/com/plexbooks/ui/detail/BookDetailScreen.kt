@@ -207,6 +207,24 @@ private fun BookDownloadButton(
     onDownload: () -> Unit,
     onDelete: () -> Unit
 ) {
+    var showRemoveConfirm by remember { mutableStateOf(false) }
+
+    if (showRemoveConfirm) {
+        AlertDialog(
+            onDismissRequest = { showRemoveConfirm = false },
+            title = { Text("Remove download?") },
+            text = { Text("The saved audio file will be deleted from your device.") },
+            confirmButton = {
+                TextButton(onClick = { onDelete(); showRemoveConfirm = false }) {
+                    Text("Remove", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRemoveConfirm = false }) { Text("Cancel") }
+            }
+        )
+    }
+
     when {
         download?.status == DownloadStatus.DOWNLOADING || download?.status == DownloadStatus.QUEUED -> {
             OutlinedButton(
@@ -221,13 +239,24 @@ private fun BookDownloadButton(
         }
         download?.status == DownloadStatus.DONE -> {
             OutlinedButton(
-                onClick = onDelete,
+                onClick = { showRemoveConfirm = true },
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = PlexOrange)
             ) {
-                Icon(Icons.Default.DeleteOutline, null, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.DownloadDone, null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Remove")
+                Text("Saved")
+            }
+        }
+        download?.status == DownloadStatus.FAILED -> {
+            OutlinedButton(
+                onClick = onDownload,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            ) {
+                Icon(Icons.Default.ErrorOutline, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Retry")
             }
         }
         else -> {
