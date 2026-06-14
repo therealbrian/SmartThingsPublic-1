@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -22,7 +24,7 @@ import coil.compose.AsyncImage
 import com.plexbooks.ui.theme.PlexOrange
 import java.util.concurrent.TimeUnit
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun PlayerScreen(
     ratingKey: String,
@@ -33,6 +35,42 @@ fun PlayerScreen(
     LaunchedEffect(ratingKey) { vm.initPlayer(ratingKey) }
     val state by vm.state.collectAsState()
     var showSpeedMenu by remember { mutableStateOf(false) }
+    var showSkipSettings by remember { mutableStateOf(false) }
+
+    if (showSkipSettings) {
+        val skipOptions = listOf(5, 10, 15, 30, 45, 60)
+        AlertDialog(
+            onDismissRequest = { showSkipSettings = false },
+            title = { Text("Skip durations") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Skip back", style = MaterialTheme.typography.labelLarge)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        skipOptions.forEach { secs ->
+                            FilterChip(
+                                selected = state.skipBackSecs == secs,
+                                onClick = { vm.setSkipBack(secs) },
+                                label = { Text("${secs}s") }
+                            )
+                        }
+                    }
+                    Text("Skip forward", style = MaterialTheme.typography.labelLarge)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        skipOptions.forEach { secs ->
+                            FilterChip(
+                                selected = state.skipForwardSecs == secs,
+                                onClick = { vm.setSkipForward(secs) },
+                                label = { Text("${secs}s") }
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSkipSettings = false }) { Text("Done") }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -44,6 +82,9 @@ fun PlayerScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showSkipSettings = true }) {
+                        Icon(Icons.Default.Settings, "Skip settings")
+                    }
                     Box {
                         TextButton(onClick = { showSpeedMenu = true }) {
                             Text("${state.speed}x", color = PlexOrange)
@@ -170,8 +211,12 @@ fun PlayerScreen(
                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
                 }
 
-                IconButton(onClick = { vm.skipBackward() }) {
-                    Icon(Icons.Default.Replay10, "Back 15s", modifier = Modifier.size(32.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    IconButton(onClick = { vm.skipBackward() }) {
+                        Icon(Icons.Default.Replay, null, modifier = Modifier.size(32.dp))
+                    }
+                    Text("-${state.skipBackSecs}s", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
                 FloatingActionButton(
@@ -192,8 +237,12 @@ fun PlayerScreen(
                     }
                 }
 
-                IconButton(onClick = { vm.skipForward() }) {
-                    Icon(Icons.Default.Forward30, "Forward 30s", modifier = Modifier.size(32.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    IconButton(onClick = { vm.skipForward() }) {
+                        Icon(Icons.Default.Forward30, null, modifier = Modifier.size(32.dp))
+                    }
+                    Text("+${state.skipForwardSecs}s", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
                 IconButton(

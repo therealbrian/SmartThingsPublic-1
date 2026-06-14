@@ -99,8 +99,9 @@ class HomeViewModel @Inject constructor(
             val serverName = prefs.serverName.first() ?: ""
             runCatching {
                 val libraries = mediaRepo.getBookLibraries()
-                val onDeck = mediaRepo.getOnDeck()
-                val recentlyAdded = mediaRepo.getRecentlyAdded()
+                val bookSectionId = libraries.firstOrNull()?.key
+                val onDeck = bookSectionId?.let { mediaRepo.getSectionOnDeck(it) } ?: emptyList()
+                val recentlyAdded = bookSectionId?.let { mediaRepo.getSectionRecentlyAdded(it) } ?: emptyList()
                 _state.value = HomeUiState(
                     serverName = serverName,
                     libraries = libraries,

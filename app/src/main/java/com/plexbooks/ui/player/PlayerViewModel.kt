@@ -36,7 +36,9 @@ data class PlayerUiState(
     val isLoading: Boolean = true,
     val error: String? = null,
     val speed: Float = 1.0f,
-    val chapterOffsets: List<Long> = emptyList()
+    val chapterOffsets: List<Long> = emptyList(),
+    val skipBackSecs: Int = 15,
+    val skipForwardSecs: Int = 30
 )
 
 @HiltViewModel
@@ -72,6 +74,10 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             serverUri = prefs.serverUri.first() ?: return@launch
             serverToken = prefs.serverToken.first() ?: return@launch
+            _state.value = _state.value.copy(
+                skipBackSecs = prefs.skipBackSecs.first(),
+                skipForwardSecs = prefs.skipForwardSecs.first()
+            )
 
             val item = mediaRepo.getMetadata(ratingKey)
             if (item == null) {
@@ -159,12 +165,22 @@ class PlayerViewModel @Inject constructor(
 
     fun skipForward() {
         val current = controller?.currentPosition ?: return
-        controller?.seekTo(current + 30_000)
+        controller?.seekTo(current + _state.value.skipForwardSecs * 1_000L)
     }
 
     fun skipBackward() {
         val current = controller?.currentPosition ?: return
-        controller?.seekTo(maxOf(0, current - 15_000))
+        controller?.seekTo(maxOf(0, current - _state.value.skipBackSecs * 1_000L))
+    }
+
+    fun setSkipBack(secs: Int) {
+        _state.value = _state.value.copy(skipBackSecs = secs)
+        viewModelScope.launch { prefs.setSkipBackSecs(secs) }
+    }
+
+    fun setSkipForward(secs: Int) {
+        _state.value = _state.value.copy(skipForwardSecs = secs)
+        viewModelScope.launch { prefs.setSkipForwardSecs(secs) }
     }
 
     fun skipToNextChapter() {

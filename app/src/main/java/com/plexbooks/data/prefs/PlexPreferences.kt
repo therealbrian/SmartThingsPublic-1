@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -24,6 +25,8 @@ class PlexPreferences @Inject constructor(
     private val SERVER_URI = stringPreferencesKey("server_uri")
     private val SERVER_TOKEN = stringPreferencesKey("server_token")
     private val SERVER_NAME = stringPreferencesKey("server_name")
+    private val SKIP_BACK_SECS = intPreferencesKey("skip_back_secs")
+    private val SKIP_FORWARD_SECS = intPreferencesKey("skip_forward_secs")
 
     val authToken: Flow<String?> = context.dataStore.data.map { it[AUTH_TOKEN] }
     val clientId: Flow<String> = context.dataStore.data.map {
@@ -32,6 +35,8 @@ class PlexPreferences @Inject constructor(
     val serverUri: Flow<String?> = context.dataStore.data.map { it[SERVER_URI] }
     val serverToken: Flow<String?> = context.dataStore.data.map { it[SERVER_TOKEN] }
     val serverName: Flow<String?> = context.dataStore.data.map { it[SERVER_NAME] }
+    val skipBackSecs: Flow<Int> = context.dataStore.data.map { it[SKIP_BACK_SECS] ?: 15 }
+    val skipForwardSecs: Flow<Int> = context.dataStore.data.map { it[SKIP_FORWARD_SECS] ?: 30 }
 
     suspend fun saveAuthToken(token: String) {
         context.dataStore.edit { it[AUTH_TOKEN] = token }
@@ -55,6 +60,14 @@ class PlexPreferences @Inject constructor(
             prefs[SERVER_TOKEN] = token
             prefs[SERVER_NAME] = name
         }
+    }
+
+    suspend fun setSkipBackSecs(secs: Int) {
+        context.dataStore.edit { it[SKIP_BACK_SECS] = secs }
+    }
+
+    suspend fun setSkipForwardSecs(secs: Int) {
+        context.dataStore.edit { it[SKIP_FORWARD_SECS] = secs }
     }
 
     suspend fun clearAll() {

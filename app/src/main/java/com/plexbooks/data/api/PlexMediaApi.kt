@@ -49,6 +49,21 @@ interface PlexMediaApi {
         @Query("X-Plex-Container-Size") size: Int = 20
     ): MediaContainer
 
+    /** On-deck items for a specific library section */
+    @GET("library/sections/{sectionId}/onDeck")
+    suspend fun getSectionOnDeck(
+        @Path("sectionId") sectionId: String,
+        @Query("X-Plex-Container-Size") size: Int = 20
+    ): MediaContainer
+
+    /** Recently added items for a specific library section (type=9=album) */
+    @GET("library/sections/{sectionId}/recentlyAdded")
+    suspend fun getSectionRecentlyAdded(
+        @Path("sectionId") sectionId: String,
+        @Query("type") type: Int = 9,
+        @Query("X-Plex-Container-Size") size: Int = 20
+    ): MediaContainer
+
     @GET("library/metadata/{ratingKey}")
     suspend fun getMetadata(
         @Path("ratingKey") ratingKey: String,
