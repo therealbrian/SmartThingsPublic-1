@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.plexbooks.data.api.model.PlexLibrarySection
 import com.plexbooks.data.api.model.PlexMediaItem
+import com.plexbooks.data.api.model.displayAuthor
 import com.plexbooks.ui.theme.PlexOrange
 
 @OptIn(ExperimentalMaterial3Api::class)

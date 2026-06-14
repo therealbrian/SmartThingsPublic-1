@@ -162,7 +162,7 @@ fun PlayerScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = { vm.skipBackward() }) {
-                    Icon(Icons.Default.Replay15, "Back 15s", modifier = Modifier.size(32.dp))
+                    Icon(Icons.Default.Replay10, "Back 15s", modifier = Modifier.size(32.dp))
                 }
 
                 FloatingActionButton(
