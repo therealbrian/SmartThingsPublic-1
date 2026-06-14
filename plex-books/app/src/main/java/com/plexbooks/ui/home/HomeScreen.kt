@@ -1,7 +1,9 @@
 package com.plexbooks.ui.home
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -19,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -29,7 +32,7 @@ import com.plexbooks.data.api.model.PlexMediaItem
 import com.plexbooks.data.api.model.displayAuthor
 import com.plexbooks.ui.theme.PlexOrange
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     onLibraryClick: (id: String, title: String) -> Unit,
@@ -174,7 +177,8 @@ fun HomeScreen(
                                                 onClick = { onBookClick(entry.ratingKey) },
                                                 onDeleteDownload = if (entry.isDownloaded) {
                                                     { vm.deleteDownload(entry.ratingKey) }
-                                                } else null
+                                                } else null,
+                                                onRemoveFromLibrary = { vm.removeFromLibrary(entry.ratingKey) }
                                             )
                                         }
                                     }
@@ -238,7 +242,31 @@ fun HomeScreen(
 
                             // All Books (paginated)
                             if (state.allBooks.isNotEmpty()) {
-                                item { SectionHeader("All Books (${state.allBooks.size}${if (state.hasMoreBooks) "+" else ""})") }
+                                item {
+                                    SectionHeader("All Books (${state.allBooks.size}${if (state.hasMoreBooks) "+" else ""})")
+                                }
+                                // Sort chips
+                                item {
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        item {
+                                            FilterChip(
+                                                selected = state.allBooksSort == "titleSort",
+                                                onClick = { vm.setSortOrder("titleSort") },
+                                                label = { Text("A – Z") }
+                                            )
+                                        }
+                                        item {
+                                            FilterChip(
+                                                selected = state.allBooksSort == "addedAt:desc",
+                                                onClick = { vm.setSortOrder("addedAt:desc") },
+                                                label = { Text("Recently Added") }
+                                            )
+                                        }
+                                    }
+                                }
                                 item {
                                     val allBooksListState = rememberLazyListState()
                                     LaunchedEffect(allBooksListState) {
@@ -287,13 +315,16 @@ fun HomeScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun LibraryCard(
     entry: LibraryEntry,
     onClick: () -> Unit,
-    onDeleteDownload: (() -> Unit)?
+    onDeleteDownload: (() -> Unit)?,
+    onRemoveFromLibrary: () -> Unit
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showRemoveDialog by remember { mutableStateOf(false) }
 
     if (showDeleteConfirm) {
         AlertDialog(
@@ -312,7 +343,31 @@ private fun LibraryCard(
         )
     }
 
-    Column(modifier = Modifier.width(120.dp).clickable(onClick = onClick)) {
+    if (showRemoveDialog) {
+        AlertDialog(
+            onDismissRequest = { showRemoveDialog = false },
+            title = { Text("Remove from Library?") },
+            text = { Text("This will remove \"${entry.title}\" from My Library and delete any download.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onRemoveFromLibrary()
+                    showRemoveDialog = false
+                }) { Text("Remove", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRemoveDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .width(120.dp)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = { showRemoveDialog = true }
+            )
+    ) {
         Box(
             modifier = Modifier
                 .size(120.dp)
@@ -344,7 +399,26 @@ private fun LibraryCard(
                 )
             }
 
-            // Downloaded badge — tap to remove
+            // Completed badge — green checkmark in top-start corner
+            if (entry.isCompleted) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(4.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0xFF2E7D32).copy(alpha = 0.88f))
+                        .padding(2.dp)
+                ) {
+                    Icon(
+                        Icons.Default.CheckCircle,
+                        contentDescription = "Completed",
+                        tint = Color.White,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+
+            // Downloaded badge — tap to remove download
             if (entry.isDownloaded && onDeleteDownload != null) {
                 Box(
                     modifier = Modifier

@@ -3,13 +3,17 @@ package com.plexbooks.service
 import android.os.Bundle
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
+import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.plexbooks.R
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -28,15 +32,29 @@ class AudioPlaybackService : MediaSessionService() {
                 true
             )
             .setHandleAudioBecomingNoisy(true)
+            .setSeekBackIncrementMs(15_000)
+            .setSeekForwardIncrementMs(30_000)
+            .build()
+
+        val skipBack = CommandButton.Builder()
+            .setPlayerCommand(Player.COMMAND_SEEK_BACK)
+            .setDisplayName("Skip back 15s")
+            .setIconResId(R.drawable.ic_notif_replay)
+            .build()
+
+        val skipForward = CommandButton.Builder()
+            .setPlayerCommand(Player.COMMAND_SEEK_FORWARD)
+            .setDisplayName("Skip forward 30s")
+            .setIconResId(R.drawable.ic_notif_forward)
             .build()
 
         mediaSession = MediaSession.Builder(this, player)
+            .setCustomLayout(ImmutableList.of(skipBack, skipForward))
             .setCallback(object : MediaSession.Callback {
                 override fun onConnect(
                     session: MediaSession,
                     controller: MediaSession.ControllerInfo
                 ): MediaSession.ConnectionResult {
-                    // Accept connections from Android Auto and other controllers
                     val sessionCommands = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
                     val playerCommands = MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS
                     return MediaSession.ConnectionResult.accept(sessionCommands, playerCommands)

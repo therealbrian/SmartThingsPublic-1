@@ -19,7 +19,8 @@ data class LibraryEntry(
     val title: String,
     val thumbUrl: String?,
     val percentComplete: Float,
-    val isDownloaded: Boolean
+    val isDownloaded: Boolean,
+    val isCompleted: Boolean
 )
 
 data class HomeUiState(
@@ -28,6 +29,7 @@ data class HomeUiState(
     val onDeck: List<PlexMediaItem> = emptyList(),
     val recentlyAdded: List<PlexMediaItem> = emptyList(),
     val allBooks: List<PlexMediaItem> = emptyList(),
+    val allBooksSort: String = "titleSort",
     val serverUri: String = "",
     val serverToken: String = "",
     val isLoading: Boolean = true,
@@ -49,6 +51,7 @@ class HomeViewModel @Inject constructor(
 
     private var bookSectionId: String? = null
     private var allBooksOffset = 0
+    private var allBooksSort = "titleSort"
     private val PAGE_SIZE = 100
 
     private val _searchQuery = MutableStateFlow("")
@@ -69,7 +72,8 @@ class HomeViewModel @Inject constructor(
                 title = p.title.ifBlank { return@forEach },
                 thumbUrl = p.thumb,
                 percentComplete = p.percentComplete,
-                isDownloaded = false
+                isDownloaded = false,
+                isCompleted = p.percentComplete >= 0.95f
             )
         }
 
@@ -83,13 +87,17 @@ class HomeViewModel @Inject constructor(
                     title = d.title,
                     thumbUrl = null,
                     percentComplete = 0f,
-                    isDownloaded = true
+                    isDownloaded = true,
+                    isCompleted = false
                 )
             }
         }
 
-        map.values.sortedWith(compareByDescending<LibraryEntry> { it.isDownloaded && it.percentComplete == 0f }
-            .thenByDescending { it.percentComplete })
+        map.values.sortedWith(
+            compareBy<LibraryEntry> { it.isCompleted }
+                .thenByDescending { it.isDownloaded && it.percentComplete == 0f }
+                .thenByDescending { it.percentComplete }
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     init { load() }
@@ -110,15 +118,34 @@ class HomeViewModel @Inject constructor(
                 val onDeck = bookSectionId?.let { mediaRepo.getSectionOnDeck(it) } ?: emptyList()
                 val recentlyAdded = bookSectionId?.let { mediaRepo.getSectionRecentlyAdded(it) } ?: emptyList()
                 val allBooks = bookSectionId?.let {
-                    runCatching { mediaRepo.getSectionItems(it, start = 0, size = PAGE_SIZE) }.getOrDefault(emptyList())
+                    runCatching { mediaRepo.getSectionItems(it, start = 0, size = PAGE_SIZE, sort = allBooksSort) }.getOrDefault(emptyList())
                 } ?: emptyList()
                 allBooksOffset = allBooks.size
+
+                // Sync server-side on-deck progress into local DB so My Library shows all in-progress books
+                onDeck.forEach { item ->
+                    val posMs = item.viewOffset ?: 0L
+                    val durMs = item.duration ?: 0L
+                    if (posMs > 0 && durMs > 0) {
+                        val thumbUrl = if (!item.thumb.isNullOrBlank())
+                            "$serverUri${item.thumb}?X-Plex-Token=$serverToken" else null
+                        mediaRepo.saveProgress(
+                            ratingKey = item.ratingKey,
+                            title = item.title,
+                            thumb = thumbUrl,
+                            positionMs = posMs,
+                            durationMs = durMs
+                        )
+                    }
+                }
+
                 _state.value = HomeUiState(
                     serverName = serverName,
                     libraries = libraries,
                     onDeck = onDeck,
                     recentlyAdded = recentlyAdded,
                     allBooks = allBooks,
+                    allBooksSort = allBooksSort,
                     serverUri = serverUri,
                     serverToken = serverToken,
                     isLoading = false,
@@ -127,6 +154,40 @@ class HomeViewModel @Inject constructor(
             }.onFailure { e ->
                 _state.value = _state.value.copy(isLoading = false, error = e.message)
             }
+        }
+    }
+
+    fun loadMoreBooks() {
+        val sectionId = bookSectionId ?: return
+        if (_state.value.isLoadingMore || !_state.value.hasMoreBooks) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isLoadingMore = true)
+            runCatching {
+                val more = mediaRepo.getSectionItems(sectionId, start = allBooksOffset, size = PAGE_SIZE, sort = allBooksSort)
+                allBooksOffset += more.size
+                _state.value = _state.value.copy(
+                    allBooks = _state.value.allBooks + more,
+                    isLoadingMore = false,
+                    hasMoreBooks = more.size >= PAGE_SIZE
+                )
+            }.onFailure {
+                _state.value = _state.value.copy(isLoadingMore = false)
+            }
+        }
+    }
+
+    fun setSortOrder(sort: String) {
+        if (allBooksSort == sort) return
+        allBooksSort = sort
+        val sectionId = bookSectionId ?: return
+        allBooksOffset = 0
+        _state.value = _state.value.copy(allBooksSort = sort, allBooks = emptyList(), isLoadingMore = false)
+        viewModelScope.launch {
+            val books = runCatching {
+                mediaRepo.getSectionItems(sectionId, start = 0, size = PAGE_SIZE, sort = sort)
+            }.getOrDefault(emptyList())
+            allBooksOffset = books.size
+            _state.value = _state.value.copy(allBooks = books, hasMoreBooks = books.size >= PAGE_SIZE)
         }
     }
 
@@ -147,28 +208,16 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun loadMoreBooks() {
-        val sectionId = bookSectionId ?: return
-        if (_state.value.isLoadingMore || !_state.value.hasMoreBooks) return
-        viewModelScope.launch {
-            _state.value = _state.value.copy(isLoadingMore = true)
-            runCatching {
-                val more = mediaRepo.getSectionItems(sectionId, start = allBooksOffset, size = PAGE_SIZE)
-                allBooksOffset += more.size
-                _state.value = _state.value.copy(
-                    allBooks = _state.value.allBooks + more,
-                    isLoadingMore = false,
-                    hasMoreBooks = more.size >= PAGE_SIZE
-                )
-            }.onFailure {
-                _state.value = _state.value.copy(isLoadingMore = false)
-            }
-        }
-    }
-
     fun deleteDownload(ratingKey: String) {
         viewModelScope.launch {
             mediaRepo.deleteDownload(ratingKey)
+        }
+    }
+
+    fun removeFromLibrary(ratingKey: String) {
+        viewModelScope.launch {
+            mediaRepo.removeProgress(ratingKey)
+            runCatching { mediaRepo.deleteDownload(ratingKey) }
         }
     }
 

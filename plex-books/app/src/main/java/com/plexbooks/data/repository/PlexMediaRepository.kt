@@ -31,8 +31,8 @@ class PlexMediaRepository @Inject constructor(
             .orEmpty()
             .filter { it.title.contains("book", ignoreCase = true) || it.type == "book" }
 
-    suspend fun getSectionItems(sectionId: String, start: Int = 0, size: Int = 100): List<PlexMediaItem> =
-        mediaApi.getSectionItems(sectionId, type = 9, start = start, size = size)
+    suspend fun getSectionItems(sectionId: String, start: Int = 0, size: Int = 100, sort: String = "titleSort"): List<PlexMediaItem> =
+        mediaApi.getSectionItems(sectionId, type = 9, start = start, size = size, sort = sort)
             .mediaContainer.metadata.orEmpty()
 
     suspend fun searchBooks(sectionId: String, query: String): List<PlexMediaItem> =
@@ -95,6 +95,8 @@ class PlexMediaRepository @Inject constructor(
 
     suspend fun getLocalProgress(ratingKey: String): ProgressEntity? =
         progressDao.get(ratingKey)
+
+    suspend fun removeProgress(ratingKey: String) = progressDao.delete(ratingKey)
 
     fun getAllProgress() = progressDao.getAll()
 
