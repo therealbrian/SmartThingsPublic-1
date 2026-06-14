@@ -38,6 +38,9 @@ class PlexMediaRepository @Inject constructor(
     suspend fun getChildren(ratingKey: String): List<PlexMediaItem> =
         mediaApi.getChildren(ratingKey).mediaContainer.metadata.orEmpty()
 
+    suspend fun getChaptersEndpoint(ratingKey: String): List<PlexMediaItem> =
+        mediaApi.getChapters(ratingKey).mediaContainer.metadata.orEmpty()
+
     suspend fun getOnDeck(): List<PlexMediaItem> =
         mediaApi.getOnDeck().mediaContainer.metadata.orEmpty()
 
