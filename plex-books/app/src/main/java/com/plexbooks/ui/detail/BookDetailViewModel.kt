@@ -6,6 +6,7 @@ import com.plexbooks.data.api.model.PlexChapter
 import com.plexbooks.data.api.model.PlexMediaItem
 import com.plexbooks.data.api.model.streamKey
 import com.plexbooks.data.local.DownloadEntity
+import com.plexbooks.data.local.DownloadStatus
 import com.plexbooks.data.local.ProgressEntity
 import com.plexbooks.data.prefs.PlexPreferences
 import com.plexbooks.data.repository.PlexMediaRepository
