@@ -14,7 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -132,19 +131,30 @@ fun BookDetailScreen(
                             }
                         }
 
-                        // Play button
+                        // Play + Download buttons
                         item {
-                            Button(
-                                onClick = { onPlay(item.ratingKey, item.title) },
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 16.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = PlexOrange)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Icon(Icons.Default.PlayArrow, null)
-                                Spacer(Modifier.width(8.dp))
-                                Text(if (state.progress != null) "Resume" else "Play")
+                                Button(
+                                    onClick = { onPlay(item.ratingKey, item.title) },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = PlexOrange)
+                                ) {
+                                    Icon(Icons.Default.PlayArrow, null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(if (state.progress != null) "Resume" else "Play")
+                                }
+
+                                BookDownloadButton(
+                                    download = state.bookDownload,
+                                    onDownload = { vm.downloadBook() },
+                                    onDelete = { vm.deleteBook() }
+                                )
                             }
                         }
 
@@ -166,36 +176,17 @@ fun BookDetailScreen(
                         // Chapters header
                         if (state.tracks.isNotEmpty()) {
                             item {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        "Chapters (${state.tracks.size})",
-                                        style = MaterialTheme.typography.titleMedium
-                                    )
-                                    val doneCount = state.downloads.values.count { it.status == DownloadStatus.DONE }
-                                    if (doneCount > 0) {
-                                        Text(
-                                            "$doneCount downloaded",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = PlexOrange
-                                        )
-                                    }
-                                }
+                                Text(
+                                    "Chapters (${state.tracks.size})",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)
+                                )
                             }
                             items(state.tracks, key = { it.key }) { track ->
                                 ChapterRow(
                                     track = track,
                                     progress = state.trackProgress[track.ratingKey],
-                                    download = state.downloads[track.ratingKey],
-                                    onPlay = { onPlay(track.ratingKey, track.title) },
-                                    onDownload = { vm.downloadTrack(track) },
-                                    onDeleteDownload = { vm.deleteDownload(track.ratingKey) },
-                                    onRefreshDownload = { vm.refreshDownloadStatus(track.ratingKey) }
+                                    onPlay = { onPlay(track.ratingKey, track.title) }
                                 )
                                 HorizontalDivider(
                                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -211,18 +202,53 @@ fun BookDetailScreen(
 }
 
 @Composable
+private fun BookDownloadButton(
+    download: DownloadEntity?,
+    onDownload: () -> Unit,
+    onDelete: () -> Unit
+) {
+    when {
+        download?.status == DownloadStatus.DOWNLOADING || download?.status == DownloadStatus.QUEUED -> {
+            OutlinedButton(
+                onClick = {},
+                shape = RoundedCornerShape(12.dp),
+                enabled = false
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = PlexOrange)
+                Spacer(Modifier.width(6.dp))
+                Text("Saving…")
+            }
+        }
+        download?.status == DownloadStatus.DONE -> {
+            OutlinedButton(
+                onClick = onDelete,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = PlexOrange)
+            ) {
+                Icon(Icons.Default.DeleteOutline, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Remove")
+            }
+        }
+        else -> {
+            OutlinedButton(
+                onClick = onDownload,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.Download, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Download")
+            }
+        }
+    }
+}
+
+@Composable
 private fun ChapterRow(
     track: PlexMediaItem,
     progress: ProgressEntity?,
-    download: DownloadEntity?,
-    onPlay: () -> Unit,
-    onDownload: () -> Unit,
-    onDeleteDownload: () -> Unit,
-    onRefreshDownload: () -> Unit
+    onPlay: () -> Unit
 ) {
-    val isDownloaded = download?.status == DownloadStatus.DONE
-    val isDownloading = download?.status == DownloadStatus.DOWNLOADING || download?.status == DownloadStatus.QUEUED
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -238,29 +264,16 @@ private fun ChapterRow(
                 modifier = Modifier
                     .size(36.dp)
                     .clip(RoundedCornerShape(6.dp))
-                    .background(
-                        if (isDownloaded) PlexOrange.copy(alpha = 0.15f)
-                        else MaterialTheme.colorScheme.surfaceVariant
-                    ),
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
-                if (isDownloaded) {
-                    Icon(
-                        Icons.Default.DownloadDone,
-                        contentDescription = "Downloaded",
-                        tint = PlexOrange,
-                        modifier = Modifier.size(18.dp)
-                    )
-                } else {
-                    Text(
-                        "${track.index ?: ""}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Text(
+                    "${track.index ?: ""}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
-            // Title + duration
             Column(Modifier.weight(1f)) {
                 Text(
                     track.title,
@@ -288,40 +301,6 @@ private fun ChapterRow(
                 }
             }
 
-            // Download action
-            when {
-                isDownloading -> {
-                    IconButton(onClick = onRefreshDownload, modifier = Modifier.size(40.dp)) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = PlexOrange,
-                            strokeWidth = 2.dp
-                        )
-                    }
-                }
-                isDownloaded -> {
-                    IconButton(onClick = onDeleteDownload, modifier = Modifier.size(40.dp)) {
-                        Icon(
-                            Icons.Default.DeleteOutline,
-                            contentDescription = "Remove download",
-                            tint = PlexOrange,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-                else -> {
-                    IconButton(onClick = onDownload, modifier = Modifier.size(40.dp)) {
-                        Icon(
-                            Icons.Default.Download,
-                            contentDescription = "Download",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            }
-
-            // Play icon
             Icon(
                 Icons.Default.PlayArrow,
                 contentDescription = "Play",
