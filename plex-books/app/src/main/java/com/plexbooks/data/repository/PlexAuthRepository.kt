@@ -43,7 +43,11 @@ class PlexAuthRepository @Inject constructor(
 
     suspend fun selectServer(resource: PlexResource) {
         val conn = resource.connections
-            .sortedWith(compareBy({ it.relay }, { it.local }))
+            .sortedWith(compareBy(
+                { it.relay },              // non-relay first
+                { it.local },              // external before local
+                { it.address.contains(':') } // IPv4 before IPv6 (IPv6 has colons)
+            ))
             .firstOrNull() ?: return
         prefs.saveServer(
             uri = conn.uri,
