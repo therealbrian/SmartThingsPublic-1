@@ -24,6 +24,13 @@ interface PlexMediaApi {
     /** Children of an item (e.g. tracks inside an album/audiobook) */
     @GET("library/metadata/{ratingKey}/children")
     suspend fun getChildren(
+        @Path("ratingKey") ratingKey: String,
+        @Query("includeChapters") includeChapters: Int = 1
+    ): MediaContainer
+
+    /** Chapter markers embedded in an M4B track */
+    @GET("library/metadata/{ratingKey}/chapters")
+    suspend fun getChapters(
         @Path("ratingKey") ratingKey: String
     ): MediaContainer
 

@@ -87,7 +87,9 @@ data class PlexMediaItem(
     @Json(name = "parentIndex") val parentIndex: Int?,
     @Json(name = "addedAt") val addedAt: Long?,
     @Json(name = "updatedAt") val updatedAt: Long?,
-    @Json(name = "Media") val media: List<PlexMedia>?
+    @Json(name = "Media") val media: List<PlexMedia>?,
+    @Json(name = "Chapter") val chapters: List<PlexChapter>?,
+    @Json(name = "grandparentRatingKey") val grandparentRatingKey: String?
 )
 
 @JsonClass(generateAdapter = true)
@@ -104,6 +106,16 @@ data class PlexPart(
     val duration: Long?,
     val size: Long?,
     val file: String?
+)
+
+// Chapter markers embedded in M4B files (returned by Plex in the track metadata)
+@JsonClass(generateAdapter = true)
+data class PlexChapter(
+    val id: Int?,
+    val tag: String,
+    @Json(name = "startTimeOffset") val startTimeOffset: Long,
+    @Json(name = "endTimeOffset") val endTimeOffset: Long,
+    val thumb: String?
 )
 
 // ── Domain model helpers ──────────────────────────────────────────────────────
