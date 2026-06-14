@@ -29,7 +29,7 @@ class PlexMediaRepository @Inject constructor(
             .mediaContainer
             .directories
             .orEmpty()
-            .filter { it.type in BOOK_LIBRARY_TYPES }
+            .filter { it.title.contains("book", ignoreCase = true) || it.type == "book" }
 
     suspend fun getSectionItems(sectionId: String): List<PlexMediaItem> =
         mediaApi.getSectionItems(sectionId, type = 9)
@@ -50,6 +50,12 @@ class PlexMediaRepository @Inject constructor(
 
     suspend fun getRecentlyAdded(): List<PlexMediaItem> =
         mediaApi.getRecentlyAdded().mediaContainer.metadata.orEmpty()
+
+    suspend fun getSectionOnDeck(sectionId: String): List<PlexMediaItem> =
+        mediaApi.getSectionOnDeck(sectionId).mediaContainer.metadata.orEmpty()
+
+    suspend fun getSectionRecentlyAdded(sectionId: String): List<PlexMediaItem> =
+        mediaApi.getSectionRecentlyAdded(sectionId).mediaContainer.metadata.orEmpty()
 
     suspend fun getMetadata(ratingKey: String): PlexMediaItem? =
         mediaApi.getMetadata(ratingKey).mediaContainer.metadata?.firstOrNull()
