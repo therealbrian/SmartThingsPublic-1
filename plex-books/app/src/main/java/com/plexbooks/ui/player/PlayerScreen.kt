@@ -17,7 +17,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import coil.compose.AsyncImage
 import com.plexbooks.ui.theme.PlexOrange
 import java.util.concurrent.TimeUnit
@@ -31,7 +31,7 @@ fun PlayerScreen(
     vm: PlayerViewModel = hiltViewModel()
 ) {
     LaunchedEffect(ratingKey) { vm.initPlayer(ratingKey) }
-    val state by vm.state.collectAsStateWithLifecycle()
+    val state by vm.state.collectAsState()
     var showSpeedMenu by remember { mutableStateOf(false) }
 
     Scaffold(

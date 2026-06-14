@@ -20,7 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import com.plexbooks.data.api.model.PlexResource
 import com.plexbooks.ui.theme.PlexOrange
 
@@ -29,7 +29,7 @@ fun LoginScreen(
     onLoginSuccess: () -> Unit,
     vm: LoginViewModel = hiltViewModel()
 ) {
-    val state by vm.uiState.collectAsStateWithLifecycle()
+    val state by vm.uiState.collectAsState()
     val context = LocalContext.current
 
     LaunchedEffect(state) {
@@ -124,7 +124,7 @@ fun ServerSelectScreen(
     onServerSelected: () -> Unit,
     vm: ServerSelectViewModel = hiltViewModel()
 ) {
-    val state by vm.state.collectAsStateWithLifecycle()
+    val state by vm.state.collectAsState()
 
     Scaffold(
         topBar = {
