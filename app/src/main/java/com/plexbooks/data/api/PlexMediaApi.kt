@@ -49,7 +49,10 @@ interface PlexMediaApi {
     ): MediaContainer
 
     @GET("library/metadata/{ratingKey}")
-    suspend fun getMetadata(@Path("ratingKey") ratingKey: String): MediaContainer
+    suspend fun getMetadata(
+        @Path("ratingKey") ratingKey: String,
+        @Query("includeChapters") includeChapters: Int = 1
+    ): MediaContainer
 
     /** Report playback progress back to Plex */
     @GET(":/progress")

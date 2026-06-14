@@ -117,13 +117,17 @@ class BookDetailViewModel @Inject constructor(
     private fun chaptersFromMarkers(parent: PlexMediaItem, chapters: List<PlexChapter>): List<PlexMediaItem> =
         chapters.mapIndexed { i, ch ->
             parent.copy(
-                ratingKey = "${parent.ratingKey}_ch_$i",
-                title = ch.tag.ifBlank { "Chapter ${i + 1}" },
-                index = i + 1,
+                // Keep parent ratingKey so the player can stream the M4B;
+                // viewOffset encodes where to seek when this chapter is tapped.
+                ratingKey = parent.ratingKey,
+                key = "${parent.key}#ch$i",   // unique key for LazyColumn
+                title = ch.tag?.ifBlank { "Chapter ${i + 1}" } ?: "Chapter ${i + 1}",
+                index = ch.index ?: (i + 1),
                 duration = ch.endTimeOffset - ch.startTimeOffset,
+                viewOffset = ch.startTimeOffset,
                 chapters = null
             )
-        }
+        }.distinctBy { it.key }  // deduplicate if Plex returns duplicates
 
     private fun observeDownloads(ratingKeys: List<String>) {
         viewModelScope.launch {

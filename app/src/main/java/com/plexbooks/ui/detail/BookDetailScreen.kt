@@ -187,7 +187,7 @@ fun BookDetailScreen(
                                     }
                                 }
                             }
-                            items(state.tracks, key = { it.ratingKey }) { track ->
+                            items(state.tracks, key = { it.key }) { track ->
                                 ChapterRow(
                                     track = track,
                                     progress = state.trackProgress[track.ratingKey],

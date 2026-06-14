@@ -112,7 +112,8 @@ data class PlexPart(
 @JsonClass(generateAdapter = true)
 data class PlexChapter(
     val id: Int?,
-    val tag: String,
+    val tag: String?,
+    val index: Int?,
     @Json(name = "startTimeOffset") val startTimeOffset: Long,
     @Json(name = "endTimeOffset") val endTimeOffset: Long,
     val thumb: String?
