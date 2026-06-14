@@ -131,7 +131,7 @@ class DynamicPlexMediaApi(
     override suspend fun getChapters(ratingKey: String) = api().getChapters(ratingKey)
     override suspend fun getRecentlyAdded(start: Int, size: Int) = api().getRecentlyAdded(start, size)
     override suspend fun getOnDeck(start: Int, size: Int) = api().getOnDeck(start, size)
-    override suspend fun getMetadata(ratingKey: String) = api().getMetadata(ratingKey)
+    override suspend fun getMetadata(ratingKey: String, includeChapters: Int) = api().getMetadata(ratingKey, includeChapters)
     override suspend fun reportProgress(ratingKey: String, identifier: String, timeMs: Long, state: String, durationMs: Long) =
         api().reportProgress(ratingKey, identifier, timeMs, state, durationMs)
     override suspend fun markPlayed(ratingKey: String, identifier: String) = api().markPlayed(ratingKey, identifier)
