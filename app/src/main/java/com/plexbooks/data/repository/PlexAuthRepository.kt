@@ -1,11 +1,16 @@
 package com.plexbooks.data.repository
 
 import com.plexbooks.data.api.PlexAuthApi
+import com.plexbooks.data.api.model.PlexConnection
 import com.plexbooks.data.api.model.PlexPin
 import com.plexbooks.data.api.model.PlexResource
 import com.plexbooks.data.prefs.PlexPreferences
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
+import java.net.Socket
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -42,19 +47,43 @@ class PlexAuthRepository @Inject constructor(
         authApi.getResources().filter { it.provides.contains("server") }
 
     suspend fun selectServer(resource: PlexResource) {
-        val conn = resource.connections
+        // Probe candidates in priority order: non-relay IPv4 first, then relay
+        val candidates = resource.connections
+            .filter { !it.address.contains(':') }   // drop IPv6
             .sortedWith(compareBy(
-                { it.relay },              // non-relay first
-                { it.local },              // external before local
-                { it.address.contains(':') } // IPv4 before IPv6 (IPv6 has colons)
+                { it.relay },                        // non-relay before relay
+                { !it.local }                        // local before external
             ))
-            .firstOrNull() ?: return
+
+        val best = probeFirst(candidates) ?: candidates.firstOrNull() ?: return
+
         prefs.saveServer(
-            uri = conn.uri,
+            uri = best.uri,
             token = resource.accessToken ?: prefs.authToken.first() ?: "",
             name = resource.name
         )
     }
+
+    /**
+     * Races TCP probes against all candidates in parallel, returns the first
+     * one that accepts a connection within 3 seconds.
+     */
+    private suspend fun probeFirst(connections: List<PlexConnection>): PlexConnection? =
+        coroutineScope {
+            connections.map { conn ->
+                async {
+                    val reachable = withTimeoutOrNull(3_000) {
+                        runCatching {
+                            Socket().use { s ->
+                                s.connect(java.net.InetSocketAddress(conn.address, conn.port), 3_000)
+                                true
+                            }
+                        }.getOrDefault(false)
+                    } ?: false
+                    if (reachable) conn else null
+                }
+            }.mapNotNull { it.await() }.firstOrNull()
+        }
 
     suspend fun logout() = prefs.clearAll()
 
