@@ -18,7 +18,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import coil.compose.AsyncImage
 import com.plexbooks.data.api.model.PlexLibrarySection
 import com.plexbooks.data.api.model.PlexMediaItem
@@ -34,8 +34,8 @@ fun HomeScreen(
     onLogout: () -> Unit,
     vm: HomeViewModel = hiltViewModel()
 ) {
-    val state by vm.state.collectAsStateWithLifecycle()
-    val progress by vm.progressItems.collectAsStateWithLifecycle()
+    val state by vm.state.collectAsState()
+    val progress by vm.progressItems.collectAsState()
     var showLogoutDialog by remember { mutableStateOf(false) }
 
     if (showLogoutDialog) {
