@@ -10,9 +10,12 @@ import com.plexbooks.data.local.ProgressEntity
 import com.plexbooks.data.prefs.PlexPreferences
 import com.plexbooks.data.repository.PlexMediaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -116,10 +119,27 @@ class BookDetailViewModel @Inject constructor(
             )
         }.distinctBy { it.key }
 
+    private var pollJob: Job? = null
+
     private fun observeBookDownload(albumKey: String) {
         viewModelScope.launch {
             mediaRepo.observeDownload(albumKey).collect { download ->
                 _state.value = _state.value.copy(bookDownload = download)
+                if (download?.status == DownloadStatus.DOWNLOADING || download?.status == DownloadStatus.QUEUED) {
+                    startPolling(albumKey)
+                } else {
+                    pollJob?.cancel()
+                }
+            }
+        }
+    }
+
+    private fun startPolling(albumKey: String) {
+        if (pollJob?.isActive == true) return
+        pollJob = viewModelScope.launch {
+            while (isActive) {
+                delay(5_000)
+                mediaRepo.checkAndUpdateDownloadStatus(albumKey)
             }
         }
     }
