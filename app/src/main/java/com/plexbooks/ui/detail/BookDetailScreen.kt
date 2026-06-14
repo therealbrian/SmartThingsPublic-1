@@ -18,7 +18,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import coil.compose.AsyncImage
 import com.plexbooks.data.api.model.PlexMediaItem
 import com.plexbooks.data.api.model.displayAuthor
@@ -34,7 +34,7 @@ fun BookDetailScreen(
     vm: BookDetailViewModel = hiltViewModel()
 ) {
     LaunchedEffect(ratingKey) { vm.load(ratingKey) }
-    val state by vm.state.collectAsStateWithLifecycle()
+    val state by vm.state.collectAsState()
 
     Scaffold(
         topBar = {
