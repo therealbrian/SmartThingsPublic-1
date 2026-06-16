@@ -10,6 +10,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.CommandButton
 import androidx.media3.session.LibraryResult
+import androidx.media3.session.LibraryParams
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionCommand
@@ -121,7 +122,7 @@ class AudioPlaybackService : MediaLibraryService() {
         override fun onGetLibraryRoot(
             session: MediaLibrarySession,
             browser: MediaSession.ControllerInfo,
-            params: MediaLibrarySession.LibraryParams?
+            params: LibraryParams?
         ): ListenableFuture<LibraryResult<MediaItem>> {
             val root = MediaItem.Builder()
                 .setMediaId(ROOT_ID)
@@ -142,7 +143,7 @@ class AudioPlaybackService : MediaLibraryService() {
             parentId: String,
             page: Int,
             pageSize: Int,
-            params: MediaLibrarySession.LibraryParams?
+            params: LibraryParams?
         ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
             val future = SettableFuture.create<LibraryResult<ImmutableList<MediaItem>>>()
             serviceScope.launch {
