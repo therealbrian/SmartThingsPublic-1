@@ -1,5 +1,3 @@
-@file:OptIn(androidx.media3.common.util.UnstableApi::class)
-
 package com.plexbooks.service
 
 import android.net.Uri
@@ -7,12 +5,8 @@ import android.os.Bundle
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
-import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.CommandButton
-import androidx.media3.session.LibraryResult
-import androidx.media3.session.LibraryParams
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionCommand
@@ -43,7 +37,6 @@ class AudioPlaybackService : MediaLibraryService() {
     private var mediaLibrarySession: MediaLibrarySession? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-    private var bookSectionId: String? = null
     private var serverUri: String = ""
     private var serverToken: String = ""
 
@@ -66,19 +59,16 @@ class AudioPlaybackService : MediaLibraryService() {
         serviceScope.launch {
             serverUri = prefs.serverUri.first() ?: ""
             serverToken = prefs.serverToken.first() ?: ""
-            runCatching {
-                bookSectionId = mediaRepo.getBookLibraries().firstOrNull()?.key
-            }
         }
 
         val skipBack = CommandButton.Builder()
-            .setPlayerCommand(Player.COMMAND_SEEK_BACK)
+            .setPlayerCommand(androidx.media3.common.Player.COMMAND_SEEK_BACK)
             .setDisplayName("Skip back 15s")
             .setIconResId(R.drawable.ic_notif_replay)
             .build()
 
         val skipForward = CommandButton.Builder()
-            .setPlayerCommand(Player.COMMAND_SEEK_FORWARD)
+            .setPlayerCommand(androidx.media3.common.Player.COMMAND_SEEK_FORWARD)
             .setDisplayName("Skip forward 30s")
             .setIconResId(R.drawable.ic_notif_forward)
             .build()
@@ -119,71 +109,6 @@ class AudioPlaybackService : MediaLibraryService() {
         ): ListenableFuture<SessionResult> =
             Futures.immediateFuture(SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED))
 
-        override fun onGetLibraryRoot(
-            session: MediaLibrarySession,
-            browser: MediaSession.ControllerInfo,
-            params: LibraryParams?
-        ): ListenableFuture<LibraryResult<MediaItem>> {
-            val root = MediaItem.Builder()
-                .setMediaId(ROOT_ID)
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setIsBrowsable(true)
-                        .setIsPlayable(false)
-                        .setTitle("PlexBooks")
-                        .build()
-                )
-                .build()
-            return Futures.immediateFuture(LibraryResult.ofItem(root, null))
-        }
-
-        override fun onGetChildren(
-            session: MediaLibrarySession,
-            browser: MediaSession.ControllerInfo,
-            parentId: String,
-            page: Int,
-            pageSize: Int,
-            params: LibraryParams?
-        ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
-            val future = SettableFuture.create<LibraryResult<ImmutableList<MediaItem>>>()
-            serviceScope.launch {
-                try {
-                    val sectionId = bookSectionId
-                    if (sectionId == null) {
-                        future.set(LibraryResult.ofItemList(ImmutableList.of(), null))
-                        return@launch
-                    }
-                    val books = mediaRepo.getSectionItems(
-                        sectionId,
-                        start = page * pageSize,
-                        size = pageSize,
-                        sort = "titleSort"
-                    )
-                    val items = books.map { book ->
-                        val thumbUri = book.thumb
-                            ?.takeIf { it.isNotBlank() }
-                            ?.let { Uri.parse("$serverUri$it?X-Plex-Token=$serverToken") }
-                        MediaItem.Builder()
-                            .setMediaId(book.ratingKey)
-                            .setMediaMetadata(
-                                MediaMetadata.Builder()
-                                    .setTitle(book.title)
-                                    .setArtist(book.grandparentTitle ?: book.parentTitle ?: "")
-                                    .setArtworkUri(thumbUri)
-                                    .setIsBrowsable(false)
-                                    .setIsPlayable(true)
-                                    .build()
-                            )
-                            .build()
-                    }
-                    future.set(LibraryResult.ofItemList(ImmutableList.copyOf(items), null))
-                } catch (e: Exception) {
-                    future.set(LibraryResult.ofError(LibraryResult.RESULT_ERROR_UNKNOWN))
-                }
-            }
-            return future
-        }
-
         override fun onAddMediaItems(
             mediaSession: MediaSession,
             controller: MediaSession.ControllerInfo,
@@ -222,9 +147,5 @@ class AudioPlaybackService : MediaLibraryService() {
             }
             return future
         }
-    }
-
-    companion object {
-        private const val ROOT_ID = "ROOT"
     }
 }
