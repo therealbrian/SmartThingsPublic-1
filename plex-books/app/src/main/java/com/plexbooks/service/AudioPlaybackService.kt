@@ -2,6 +2,7 @@ package com.plexbooks.service
 
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -11,9 +12,9 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.CommandButton
+import androidx.media3.session.LibraryParams
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService
-import androidx.media3.session.MediaLibraryService.LibraryParams
 import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionError
@@ -126,6 +127,7 @@ class AudioPlaybackService : MediaLibraryService() {
             browser: MediaSession.ControllerInfo,
             params: LibraryParams?
         ): ListenableFuture<LibraryResult<MediaItem>> {
+            Log.d("PlexBooks", "onGetLibraryRoot called from ${browser.packageName}")
             val root = MediaItem.Builder()
                 .setMediaId(ROOT_ID)
                 .setMediaMetadata(
